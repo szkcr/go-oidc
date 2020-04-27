@@ -19,6 +19,9 @@ import (
 const (
 	issuerGoogleAccounts         = "https://accounts.google.com"
 	issuerGoogleAccountsNoScheme = "accounts.google.com"
+
+	issuerMicrosoftAccountCommon = "https://login.microsoftonline.com/common/v2.0"
+	issuerMicrosoftAccountCommonTenant = "https://login.microsoftonline.com/{tenant}/v2.0"
 )
 
 // KeySet is a set of publc JSON Web Keys that can be used to validate the signature
@@ -255,7 +258,13 @@ func (v *IDTokenVerifier) Verify(ctx context.Context, rawIDToken string) (*IDTok
 		// for Google.
 		//
 		// We will not add hooks to let other providers go off spec like this.
-		if !(v.issuer == issuerGoogleAccounts && t.Issuer == issuerGoogleAccountsNoScheme) {
+		shouldSkipItsGoolge := v.issuer == issuerGoogleAccounts && t.Issuer == issuerGoogleAccountsNoScheme
+
+		// Microsoft returns "https://login.microsoftonline.com/{tenant}/v2.0" instead of "https://login.microsoftonline.com/common/v2.0". Detect this case and allow it.
+		// vid. https://github.com/MicrosoftDocs/azure-docs/issues/38427
+		shouldSkipItsMicrosoftCommon := v.issuer == issuerMicrosoftAccountCommon && t.Issuer == issuerMicrosoftAccountCommonTenant
+
+		if !(shouldSkipItsGoolge || shouldSkipItsMicrosoftCommon) {
 			return nil, fmt.Errorf("oidc: id token issued by a different provider, expected %q got %q", v.issuer, t.Issuer)
 		}
 	}

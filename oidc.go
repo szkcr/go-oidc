@@ -138,8 +138,15 @@ func NewProvider(ctx context.Context, issuer string) (*Provider, error) {
 	}
 
 	if p.Issuer != issuer {
-		return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected %q got %q", issuer, p.Issuer)
+		// Microsoft returns "https://login.microsoftonline.com/{tenant}/v2.0" insted of "https://login.microsoftonline.com/common/v2.0". Detect this case and allow.
+		// vid. https://github.com/MicrosoftDocs/azure-docs/issues/38427
+		isMicrosoftCommon := issuer == issuerMicrosoftAccountCommon && p.Issuer == issuerMicrosoftAccountCommonTenant
+
+		if !isMicrosoftCommon {
+			return nil, fmt.Errorf("oidc: issuer did not match the issuer returned by provider, expected %q got %q", issuer, p.Issuer)
+		}
 	}
+
 	var algs []string
 	for _, a := range p.Algorithms {
 		if supportedAlgorithms[a] {
